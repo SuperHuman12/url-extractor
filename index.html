@@ -118,7 +118,7 @@
         </div>
     </div>
 
-    <script>
+<script>
         let extractedUrls = [];
         let filteredUrls = [];
         let currentPage = 1;
@@ -181,23 +181,27 @@
 
         function applyFilters() {
             const filterInput = document.getElementById('keyword-filter').value;
-            const keywords = filterInput.toLowerCase().split(',').map(k => k.trim()).filter(k => k);
+            const keywords = filterInput.toLowerCase().split(',')
+                .map(k => k.trim())
+                .filter(k => k)
+                .sort((a, b) => b.length - a.length); // Sort keywords by length (longest first)
 
             if (keywords.length === 0) {
                 filteredUrls = [...extractedUrls];
             } else {
                 filteredUrls = extractedUrls.filter(url => {
                     const urlLower = url.toLowerCase();
-                    return keywords.some(keyword => urlLower.includes(keyword));
+                    // Check if ALL keywords are present in the URL
+                    return keywords.every(keyword => urlLower.includes(keyword));
                 });
             }
 
             currentPage = 1;
-            updateTableWithFiltered();
+            updateTableWithFiltered(keywords);
             updatePaginationWithFiltered();
         }
 
-        function updateTableWithFiltered() {
+        function updateTableWithFiltered(keywords = []) {
             const tableBody = document.getElementById('url-table-body');
             const urlCount = document.getElementById('url-count');
             const pageInfo = document.getElementById('page-info');
@@ -212,6 +216,18 @@
             const tableContent = pageUrls.map((url, index) => {
                 const domain = getDomain(url);
                 const globalIndex = startIndex + index + 1;
+                
+                // Highlight keywords in URL
+                let highlightedUrl = url;
+                keywords.forEach(keyword => {
+                    if (keyword) {
+                        const regex = new RegExp(keyword, 'gi');
+                        highlightedUrl = highlightedUrl.replace(regex, match => 
+                            `<span class="bg-yellow-200 font-medium">${match}</span>`
+                        );
+                    }
+                });
+
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -219,7 +235,7 @@
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">
                             <a href="${url}" target="_blank" class="text-blue-600 hover:text-blue-900 hover:underline break-all">
-                                ${url}
+                                ${highlightedUrl}
                             </a>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -259,7 +275,7 @@
 
             if (newPage >= 1 && newPage <= totalPages) {
                 currentPage = newPage;
-                updateTableWithFiltered();
+                updateTableWithFiltered(document.getElementById('keyword-filter').value.toLowerCase().split(',').map(k => k.trim()).filter(k => k));
                 updatePaginationWithFiltered();
             }
         }
@@ -267,7 +283,7 @@
         function changeItemsPerPage() {
             itemsPerPage = parseInt(document.getElementById('items-per-page').value);
             currentPage = 1;
-            updateTableWithFiltered();
+            updateTableWithFiltered(document.getElementById('keyword-filter').value.toLowerCase().split(',').map(k => k.trim()).filter(k => k));
             updatePaginationWithFiltered();
         }
 
