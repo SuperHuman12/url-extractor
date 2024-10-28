@@ -117,243 +117,245 @@
             </div>
         </div>
     </div>
-
 <script>
-    let extractedUrls = [];
-    let filteredUrls = [];
-    let currentPage = 1;
-    let itemsPerPage = 50;
+        let extractedUrls = [];
+        let filteredUrls = [];
+        let currentPage = 1;
+        let itemsPerPage = 50;
 
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    function getDomain(url) {
-        try {
-            return new URL(url).hostname;
-        } catch {
-            return 'Invalid URL';
-        }
-    }
-
-    function cleanUrl(url) {
-        return url
-            .replace(/[.,})\]]+$/, '')
-            .replace(/\d{4}-\d{2}-\d{2}T.*$/, '')
-            .replace(/weekly.*$/, '')
-            .replace(/daily.*$/, '')
-            .trim();
-    }
-
-    function extractUrls() {
-        const inputText = document.getElementById('input-text').value;
-        const resultsSection = document.getElementById('results-section');
-        
-        const chunkSize = 1000;
-        const chunks = inputText.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
-        
-        extractedUrls = [];
-        const urlSet = new Set();
-
-        const urlRegex = /https?:\/\/[^\s\n\r"'<>[\](){}]+/g;
-        
-        chunks.forEach(chunk => {
-            const matches = chunk.match(urlRegex) || [];
-            matches.forEach(url => {
-                const cleanedUrl = cleanUrl(url);
-                if (cleanedUrl && !urlSet.has(cleanedUrl)) {
-                    urlSet.add(cleanedUrl);
-                    extractedUrls.push(cleanedUrl);
-                }
-            });
-        });
-
-        if (extractedUrls.length === 0) {
-            alert('No URLs found in the text');
-            return;
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
-        resultsSection.classList.remove('hidden');
-        currentPage = 1;
-        filteredUrls = [...extractedUrls];
-        applyFilters(); // Changed to call applyFilters instead
-    }
-
-    function applyFilters() {
-        const filterInput = document.getElementById('keyword-filter').value;
-        const keywords = filterInput.toLowerCase().split(',')
-            .map(k => k.trim())
-            .filter(k => k)
-            .sort((a, b) => b.length - a.length);
-
-        if (keywords.length === 0) {
-            filteredUrls = [...extractedUrls];
-        } else {
-            filteredUrls = extractedUrls.filter(url => {
-                const urlLower = url.toLowerCase();
-                return keywords.every(keyword => urlLower.includes(keyword));
-            });
+        function getDomain(url) {
+            try {
+                return new URL(url).hostname;
+            } catch {
+                return 'Invalid URL';
+            }
         }
 
-        currentPage = 1;
-        updateTableWithFiltered(keywords);
-        updatePaginationWithFiltered();
-    }
+        function cleanUrl(url) {
+            return url
+                .replace(/[.,})\]]+$/, '')
+                .replace(/\d{4}-\d{2}-\d{2}T.*$/, '')
+                .replace(/weekly.*$/, '')
+                .replace(/daily.*$/, '')
+                .trim();
+        }
 
-    function updateTableWithFiltered(keywords = []) {
-        const tableBody = document.getElementById('url-table-body');
-        const urlCount = document.getElementById('url-count');
-        const pageInfo = document.getElementById('page-info');
-        
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = Math.min(startIndex + itemsPerPage, filteredUrls.length);
-        const pageUrls = filteredUrls.slice(startIndex, endIndex);
-
-        urlCount.textContent = `${filteredUrls.length} URLs found`;
-        pageInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${filteredUrls.length}`;
-
-        const tableContent = pageUrls.map((url, index) => {
-            const domain = getDomain(url);
-            const globalIndex = startIndex + index + 1;
+        function extractUrls() {
+            const inputText = document.getElementById('input-text').value;
+            const resultsSection = document.getElementById('results-section');
             
-            // Improved keyword highlighting
-            let highlightedUrl = url;
-            if (keywords.length > 0) {
-                // Create a single regex pattern for all keywords
-                const pattern = keywords
-                    .map(keyword => escapeRegExp(keyword))
-                    .join('|');
-                const regex = new RegExp(`(${pattern})`, 'gi');
-                highlightedUrl = highlightedUrl.replace(regex, 
-                    '<span class="bg-yellow-200 font-medium">$1</span>'
-                );
+            const chunkSize = 1000;
+            const chunks = inputText.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
+            
+            extractedUrls = [];
+            const urlSet = new Set();
+            const urlRegex = /https?:\/\/[^\s\n\r"'<>[\](){}]+/g;
+            
+            chunks.forEach(chunk => {
+                const matches = chunk.match(urlRegex) || [];
+                matches.forEach(url => {
+                    const cleanedUrl = cleanUrl(url);
+                    if (cleanedUrl && !urlSet.has(cleanedUrl)) {
+                        urlSet.add(cleanedUrl);
+                        extractedUrls.push(cleanedUrl);
+                    }
+                });
+            });
+
+            if (extractedUrls.length === 0) {
+                alert('No URLs found in the text');
+                return;
             }
 
-            return `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${globalIndex}
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                        <a href="${url}" target="_blank" class="text-blue-600 hover:text-blue-900 hover:underline break-all">
-                            ${highlightedUrl}
-                        </a>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${domain}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button 
-                            onclick="copyUrl('${url}')"
-                            class="text-indigo-600 hover:text-indigo-900 mr-2">
-                            Copy
-                        </button>
-                        <a href="${url}" 
-                           target="_blank"
-                           class="text-green-600 hover:text-green-900">
-                            Visit
-                        </a>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+            resultsSection.classList.remove('hidden');
+            currentPage = 1;
+            applyFilters();
+        }
 
-        tableBody.innerHTML = tableContent;
-    }
+        function applyFilters() {
+            const filterInput = document.getElementById('keyword-filter').value;
+            const keywords = filterInput.split(',')
+                .map(k => k.trim())
+                .filter(k => k);
 
-    function updatePaginationWithFiltered() {
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const totalPages = Math.ceil(filteredUrls.length / itemsPerPage);
+            if (keywords.length === 0) {
+                filteredUrls = [...extractedUrls];
+            } else {
+                filteredUrls = extractedUrls.filter(url => {
+                    const urlLower = url.toLowerCase();
+                    return keywords.every(keyword => 
+                        urlLower.includes(keyword.toLowerCase())
+                    );
+                });
+            }
 
-        prevBtn.disabled = currentPage === 1;
-        nextBtn.disabled = currentPage === totalPages;
-    }
+            currentPage = 1;
+            updateTableWithFiltered(keywords);
+            updatePaginationWithFiltered();
+        }
 
-    function changePage(delta) {
-        const totalPages = Math.ceil(filteredUrls.length / itemsPerPage);
-        const newPage = currentPage + delta;
+        function highlightKeywords(text, keywords) {
+            let result = text;
+            
+            // Sort keywords by length (longest first) to prevent partial matches
+            keywords.sort((a, b) => b.length - a.length);
 
-        if (newPage >= 1 && newPage <= totalPages) {
-            currentPage = newPage;
+            keywords.forEach(keyword => {
+                if (!keyword) return;
+                
+                const regex = new RegExp(escapeRegExp(keyword), 'gi');
+                result = result.replace(regex, match => 
+                    `<mark class="bg-yellow-200 font-medium">${match}</mark>`
+                );
+            });
+
+            return result;
+        }
+
+        function updateTableWithFiltered(keywords = []) {
+            const tableBody = document.getElementById('url-table-body');
+            const urlCount = document.getElementById('url-count');
+            const pageInfo = document.getElementById('page-info');
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredUrls.length);
+            const pageUrls = filteredUrls.slice(startIndex, endIndex);
+
+            urlCount.textContent = `${filteredUrls.length} URLs found`;
+            pageInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${filteredUrls.length}`;
+
+            const tableContent = pageUrls.map((url, index) => {
+                const domain = getDomain(url);
+                const globalIndex = startIndex + index + 1;
+                const highlightedUrl = highlightKeywords(url, keywords);
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${globalIndex}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            <div class="text-blue-600 hover:text-blue-900 break-all">
+                                ${highlightedUrl}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${domain}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button 
+                                onclick="copyUrl('${url}')"
+                                class="text-indigo-600 hover:text-indigo-900 mr-2">
+                                Copy
+                            </button>
+                            <a href="${url}" 
+                               target="_blank"
+                               class="text-green-600 hover:text-green-900">
+                                Visit
+                            </a>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            tableBody.innerHTML = tableContent;
+        }
+
+        function updatePaginationWithFiltered() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const totalPages = Math.ceil(filteredUrls.length / itemsPerPage);
+
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(filteredUrls.length / itemsPerPage);
+            const newPage = currentPage + delta;
+
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                const keywords = document.getElementById('keyword-filter').value
+                    .split(',')
+                    .map(k => k.trim())
+                    .filter(k => k);
+                updateTableWithFiltered(keywords);
+                updatePaginationWithFiltered();
+            }
+        }
+
+        function changeItemsPerPage() {
+            itemsPerPage = parseInt(document.getElementById('items-per-page').value);
+            currentPage = 1;
             const keywords = document.getElementById('keyword-filter').value
-                .toLowerCase()
                 .split(',')
                 .map(k => k.trim())
                 .filter(k => k);
             updateTableWithFiltered(keywords);
             updatePaginationWithFiltered();
         }
-    }
 
-    function changeItemsPerPage() {
-        itemsPerPage = parseInt(document.getElementById('items-per-page').value);
-        currentPage = 1;
-        const keywords = document.getElementById('keyword-filter').value
-            .toLowerCase()
-            .split(',')
-            .map(k => k.trim())
-            .filter(k => k);
-        updateTableWithFiltered(keywords);
-        updatePaginationWithFiltered();
-    }
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1000);
+            });
+        }
 
-    function copyUrl(url) {
-        navigator.clipboard.writeText(url).then(() => {
-            const button = event.target;
-            const originalText = button.textContent;
-            button.textContent = 'Copied!';
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 1000);
-        });
-    }
+        function copyAllUrls() {
+            const urlsText = filteredUrls.join('\n');
+            navigator.clipboard.writeText(urlsText).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'All Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 1000);
+            });
+        }
 
-    function copyAllUrls() {
-        const urlsText = filteredUrls.join('\n');
-        navigator.clipboard.writeText(urlsText).then(() => {
-            const button = event.target;
-            const originalText = button.textContent;
-            button.textContent = 'All Copied!';
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 1000);
-        });
-    }
+        function downloadCSV() {
+            const data = filteredUrls.map((url, index) => ({
+                'No.': index + 1,
+                'URL': url,
+                'Domain': getDomain(url)
+            }));
 
-    function downloadCSV() {
-        const data = filteredUrls.map((url, index) => ({
-            'No.': index + 1,
-            'URL': url,
-            'Domain': getDomain(url)
-        }));
+            const csv = Papa.unparse(data);
+            downloadFile(csv, 'extracted_urls.csv', 'text/csv');
+        }
 
-        const csv = Papa.unparse(data);
-        downloadFile(csv, 'extracted_urls.csv', 'text/csv');
-    }
+        function downloadExcel() {
+            const data = filteredUrls.map((url, index) => ({
+                'No.': index + 1,
+                'URL': url,
+                'Domain': getDomain(url)
+            }));
 
-    function downloadExcel() {
-        const data = filteredUrls.map((url, index) => ({
-            'No.': index + 1,
-            'URL': url,
-            'Domain': getDomain(url)
-        }));
+            const csv = '\ufeff' + Papa.unparse(data);
+            downloadFile(csv, 'extracted_urls.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        }
 
-        const csv = '\ufeff' + Papa.unparse(data);
-        downloadFile(csv, 'extracted_urls.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    }
-
-    function downloadFile(content, fileName, mimeType) {
-        const blob = new Blob([content], { type: mimeType });
-        const url = window.URL.createObjectURL(blob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = fileName;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        window.URL.revokeObjectURL(url);
-    }
-</script>
+        function downloadFile(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = fileName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
