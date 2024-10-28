@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,7 +33,10 @@
 
                 <div id="results-section" class="hidden">
                     <div class="flex justify-between items-center mb-4">
-                        <span id="url-count" class="text-sm font-medium text-gray-700"></span>
+                        <div>
+                            <span id="url-count" class="text-sm font-medium text-gray-700"></span>
+                            <span id="page-info" class="text-sm text-gray-500 ml-4"></span>
+                        </div>
                         <div class="space-x-2">
                             <button 
                                 onclick="copyAllUrls()"
@@ -76,6 +78,29 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div class="mt-4 flex justify-between items-center">
+                        <div class="flex space-x-2">
+                            <button onclick="changePage(-1)" id="prev-btn" class="px-4 py-2 border rounded text-sm disabled:opacity-50">
+                                Previous
+                            </button>
+                            <button onclick="changePage(1)" id="next-btn" class="px-4 py-2 border rounded text-sm disabled:opacity-50">
+                                Next
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-600">Items per page:</span>
+                            <select 
+                                id="items-per-page" 
+                                onchange="changeItemsPerPage()"
+                                class="border rounded px-2 py-1 text-sm">
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="500">500</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -83,6 +108,8 @@
 
     <script>
         let extractedUrls = [];
+        let currentPage = 1;
+        let itemsPerPage = 50;
 
         function getDomain(url) {
             try {
@@ -92,43 +119,71 @@
             }
         }
 
+        function cleanUrl(url) {
+            return url
+                .replace(/[.,})\]]+$/, '')
+                .replace(/\d{4}-\d{2}-\d{2}T.*$/, '')
+                .replace(/weekly.*$/, '')
+                .replace(/daily.*$/, '')
+                .trim();
+        }
+
         function extractUrls() {
             const inputText = document.getElementById('input-text').value;
-            const tableBody = document.getElementById('url-table-body');
-            const urlCount = document.getElementById('url-count');
             const resultsSection = document.getElementById('results-section');
             
-            // Improved regex pattern to properly extract URLs before timestamps
-            const urlRegex = /(https?:\/\/[^\/\s]+(?:\/[^\s\d]*(?=\d{4}-\d{2}|$)|\/[^\s]*))/g;
+            // Process text in chunks to prevent browser freezing
+            const chunkSize = 1000;
+            const chunks = inputText.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
             
-            // Find all URLs and clean them
-            const matches = inputText.match(urlRegex) || [];
-            extractedUrls = [...new Set(matches)].map(url => {
-                // Clean the URL by removing any trailing non-URL characters
-                return url.replace(/[.,})\]]+$/, '')
-                         .replace(/\d{4}-\d{2}-\d{2}T.*$/, '') // Remove timestamps
-                         .replace(/weekly.*$/, '')  // Remove 'weekly' and following text
-                         .replace(/daily.*$/, '');  // Remove 'daily' and following text
-            }).filter(url => url); // Remove any empty strings
+            extractedUrls = [];
+            const urlSet = new Set();
+
+            // More comprehensive regex pattern
+            const urlRegex = /https?:\/\/[^\s\n\r"'<>[\](){}]+/g;
             
+            chunks.forEach(chunk => {
+                const matches = chunk.match(urlRegex) || [];
+                matches.forEach(url => {
+                    const cleanedUrl = cleanUrl(url);
+                    if (cleanedUrl && !urlSet.has(cleanedUrl)) {
+                        urlSet.add(cleanedUrl);
+                        extractedUrls.push(cleanedUrl);
+                    }
+                });
+            });
+
             if (extractedUrls.length === 0) {
                 alert('No URLs found in the text');
                 return;
             }
 
-            // Show results section
+            // Show results section and update counts
             resultsSection.classList.remove('hidden');
-            
-            // Update URL count
-            urlCount.textContent = `${extractedUrls.length} URLs found`;
+            currentPage = 1;
+            updateTable();
+            updatePagination();
+        }
 
-            // Create table rows
-            const tableContent = extractedUrls.map((url, index) => {
+        function updateTable() {
+            const tableBody = document.getElementById('url-table-body');
+            const urlCount = document.getElementById('url-count');
+            const pageInfo = document.getElementById('page-info');
+            
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, extractedUrls.length);
+            const pageUrls = extractedUrls.slice(startIndex, endIndex);
+
+            urlCount.textContent = `${extractedUrls.length} URLs found`;
+            pageInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${extractedUrls.length}`;
+
+            const tableContent = pageUrls.map((url, index) => {
                 const domain = getDomain(url);
+                const globalIndex = startIndex + index + 1;
                 return `
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${index + 1}
+                            ${globalIndex}
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-900">
                             <a href="${url}" target="_blank" class="text-blue-600 hover:text-blue-900 hover:underline break-all">
@@ -157,9 +212,35 @@
             tableBody.innerHTML = tableContent;
         }
 
+        function updatePagination() {
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const totalPages = Math.ceil(extractedUrls.length / itemsPerPage);
+
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+
+        function changePage(delta) {
+            const totalPages = Math.ceil(extractedUrls.length / itemsPerPage);
+            const newPage = currentPage + delta;
+
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                updateTable();
+                updatePagination();
+            }
+        }
+
+        function changeItemsPerPage() {
+            itemsPerPage = parseInt(document.getElementById('items-per-page').value);
+            currentPage = 1;
+            updateTable();
+            updatePagination();
+        }
+
         function copyUrl(url) {
             navigator.clipboard.writeText(url).then(() => {
-                // Show temporary feedback
                 const button = event.target;
                 const originalText = button.textContent;
                 button.textContent = 'Copied!';
